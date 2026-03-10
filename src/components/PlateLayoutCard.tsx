@@ -1,26 +1,26 @@
-import type { CSSProperties } from 'react';
-import type { PlatePlan, WellEntry } from '../logic/types';
+import { STEP_COLOR_MAP } from '../logic/stepColors';
+import type { PlatePlan } from '../logic/types';
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const cols = Array.from({ length: 12 }, (_, i) => i + 1);
 
 interface Props {
   plate: PlatePlan;
+  disabledIds: Set<string>;
+  onToggleWell: (wellId: string) => void;
+  onToggleRow: (plateNumber: number, row: string) => void;
+  onToggleColumn: (plateNumber: number, col: number) => void;
 }
 
-const stepIndexMap: Record<WellEntry['step'], number> = {
-  Step1: 0,
-  Step2: 1,
-  Step3: 2,
-  Step4: 3,
-};
+const toPlateWellId = (plateNumber: number, well: string): string => `P${plateNumber}_${well}`;
 
-const borderColorFor = (entry: WellEntry): string => {
-  const hue = (entry.gelNumber * 53 + stepIndexMap[entry.step] * 19) % 360;
-  return `hsl(${hue} 85% 45%)`;
-};
-
-export function PlateLayoutCard({ plate }: Props) {
+export function PlateLayoutCard({
+  plate,
+  disabledIds,
+  onToggleWell,
+  onToggleRow,
+  onToggleColumn,
+}: Props) {
   return (
     <section className="card">
       <h3>Plate {plate.plateNumber}</h3>
@@ -30,31 +30,40 @@ export function PlateLayoutCard({ plate }: Props) {
             <tr>
               <th></th>
               {cols.map((col) => (
-                <th key={col}>{col}</th>
+                <th key={col}>
+                  <button type="button" className="axis-toggle" onClick={() => onToggleColumn(plate.plateNumber, col)}>
+                    {col}
+                  </button>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row}>
-                <th>{row}</th>
+                <th>
+                  <button type="button" className="axis-toggle" onClick={() => onToggleRow(plate.plateNumber, row)}>
+                    {row}
+                  </button>
+                </th>
                 {cols.map((col) => {
-                  const wellId = `${row}${col}`;
-                  const entry = plate.wells[wellId];
-                  const cellStyle: CSSProperties | undefined = entry
-                    ? { borderColor: borderColorFor(entry) }
-                    : undefined;
+                  const rawWellId = `${row}${col}`;
+                  const wellId = toPlateWellId(plate.plateNumber, rawWellId);
+                  const entry = plate.wells[rawWellId];
+                  const isDisabled = disabledIds.has(wellId);
 
                   return (
                     <td
                       key={wellId}
-                      className={entry ? 'step-border' : ''}
-                      style={cellStyle}
+                      className={isDisabled ? 'is-disabled' : ''}
+                      onClick={() => onToggleWell(wellId)}
+                      style={entry ? { borderColor: STEP_COLOR_MAP[entry.step].border } : undefined}
                       title={entry ? `${entry.sampleName} (${entry.step})` : ''}
                     >
                       {entry ? (
                         <div className="well-cell">
-                          <small>G{entry.gelNumber}#{entry.localNumber} {entry.step}</small>
+                          <small>{entry.step}</small>
+                          <small>G{entry.gelNumber}#{entry.localNumber}</small>
                           <span>{entry.sampleName}</span>
                         </div>
                       ) : (

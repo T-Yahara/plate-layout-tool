@@ -73,7 +73,7 @@ const buildGelLanes = (samples: string[], markerPlacement: MarkerPlacement): Lan
   return lanes;
 };
 
-const localNumberToStep = (localNumber: number): WellEntry['step'] => {
+export const getStepForLocalNumber = (localNumber: number): WellEntry['step'] => {
   if (localNumber <= 16) {
     return localNumber % 2 === 1 ? 'Step1' : 'Step2';
   }
@@ -139,7 +139,7 @@ const assignSamplesToPlateColumns = (
         sampleName,
         gelNumber: gel.gelNumber,
         localNumber,
-        step: localNumber >= 17 && step === 'Step3' ? localNumberToStep(localNumber) : step,
+        step: localNumber >= 17 && step === 'Step3' ? getStepForLocalNumber(localNumber) : step,
       };
     });
   });

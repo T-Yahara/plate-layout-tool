@@ -18,7 +18,9 @@ body {
   padding: 20px;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   margin: 0 0 12px;
 }
 
@@ -65,6 +67,7 @@ button:disabled {
 .button-row {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .error {
@@ -81,6 +84,7 @@ button:disabled {
   display: flex;
   gap: 20px;
   font-weight: 700;
+  flex-wrap: wrap;
 }
 
 .gel-grid-wrap {
@@ -95,19 +99,19 @@ button:disabled {
 }
 
 .lane {
-  border: 1px solid #d0d5dd;
+  border: 2px solid #d0d5dd;
   border-radius: 8px;
   padding: 8px;
 }
 
-.lane.marker {
-  background: #fff7ed;
-  border-color: #fdba74;
+.lane-button {
+  text-align: left;
+  color: inherit;
 }
 
-.lane.sample {
-  background: #ecfdf3;
-  border-color: #86efac;
+.lane-button.marker,
+.lane-button.empty {
+  background: #f8fafc;
 }
 
 .lane-number {
@@ -144,8 +148,19 @@ button:disabled {
   gap: 8px;
 }
 
-.steps-grid p {
+.step-toggle {
+  text-align: left;
+  color: #1f2937;
+  border: 2px solid transparent;
+}
+
+.step-toggle h4,
+.step-toggle p {
   margin: 0;
+}
+
+.step-toggle p {
+  margin-top: 6px;
   word-break: break-word;
 }
 
@@ -166,6 +181,11 @@ button:disabled {
   vertical-align: top;
 }
 
+.plate-table td {
+  cursor: pointer;
+  border-width: 2px;
+}
+
 .well-cell {
   display: flex;
   flex-direction: column;
@@ -180,9 +200,17 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
-.step-border {
-  border-width: 2px !important;
-  border-style: solid;
+.axis-toggle {
+  width: 100%;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
+  padding: 4px 6px;
+}
+
+.is-disabled {
+  opacity: 0.3;
+  background: #e5e7eb !important;
 }
 
 .stack {
