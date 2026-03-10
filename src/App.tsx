@@ -22,8 +22,6 @@ function App() {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const plateElementsRef = useRef<Map<number, HTMLElement>>(new Map());
-  const gelElementsRef = useRef<Map<number, HTMLElement>>(new Map());
 
   const duplicates = useMemo(() => detectDuplicates(samples), [samples]);
 
@@ -154,8 +152,6 @@ function App() {
     setDisabledGelIds(new Set());
     setSelectedFileName('未選択');
     setIsExportMenuOpen(false);
-    plateElementsRef.current.clear();
-    gelElementsRef.current.clear();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -172,21 +168,6 @@ function App() {
     setDisabledGelIds(new Set());
   };
 
-  const registerPlateElement = (plateNumber: number, element: HTMLElement | null) => {
-    if (element) {
-      plateElementsRef.current.set(plateNumber, element);
-    } else {
-      plateElementsRef.current.delete(plateNumber);
-    }
-  };
-
-  const registerGelElement = (gelNumber: number, element: HTMLElement | null) => {
-    if (element) {
-      gelElementsRef.current.set(gelNumber, element);
-    } else {
-      gelElementsRef.current.delete(gelNumber);
-    }
-  };
 
   const onExport = async (type: 'plateCsv' | 'gelCsv' | 'platePng' | 'gelPng') => {
     if (!result) {
@@ -195,8 +176,8 @@ function App() {
     try {
       if (type === 'plateCsv') exportPlateCsv(result);
       if (type === 'gelCsv') exportGelCsv(result);
-      if (type === 'platePng') await exportPlatePng(result, plateElementsRef.current);
-      if (type === 'gelPng') await exportGelPng(result, gelElementsRef.current);
+      if (type === 'platePng') await exportPlatePng(result);
+      if (type === 'gelPng') await exportGelPng(result);
     } catch {
       setError('エクスポートに失敗しました。');
     } finally {
@@ -291,7 +272,6 @@ function App() {
                   onToggleRow={toggleRow}
                   onToggleColumn={toggleColumn}
                   onToggleGroupStep={toggleGroupStepInPlate}
-                  registerPlateElement={registerPlateElement}
                 />
               ))}
             </div>
@@ -307,7 +287,6 @@ function App() {
                   disabledIds={disabledGelIds}
                   onToggleLane={toggleGelLane}
                   onToggleStep={toggleStepInGel}
-                  registerGelElement={registerGelElement}
                 />
               ))}
             </div>

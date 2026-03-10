@@ -11,7 +11,6 @@ interface Props {
   onToggleRow: (plateNumber: number, row: string) => void;
   onToggleColumn: (plateNumber: number, col: number) => void;
   onToggleGroupStep: (plateNumber: number, group: 1 | 2 | 3 | 4, step: 1 | 2 | 3 | 4) => void;
-  registerPlateElement: (plateNumber: number, element: HTMLElement | null) => void;
 }
 
 const toPlateWellId = (plateNumber: number, well: string): string => `P${plateNumber}_${well}`;
@@ -22,11 +21,10 @@ export function PlateLayoutCard({
   onToggleWell,
   onToggleRow,
   onToggleColumn,
-  onToggleGroupStep,
-  registerPlateElement,
+  onToggleGroupStep
 }: Props) {
   return (
-    <section className="card" ref={(el) => registerPlateElement(plate.plateNumber, el)}>
+    <section className="card">
       <h3>Plate {plate.plateNumber}</h3>
 
       <div className="group-step-row" title="G{group}-{step}: Gelグループ単位のStepトグル">
