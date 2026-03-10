@@ -28,20 +28,25 @@ h3 {
   background: white;
   border-radius: 10px;
   border: 1px solid #dde3ee;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 14px;
+  margin-bottom: 14px;
 }
 
 .form-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   align-items: center;
 }
 
 .form-row label {
   min-width: 220px;
   font-weight: 600;
+}
+
+.file-name {
+  color: #475467;
+  font-size: 13px;
 }
 
 input[type='file'],
@@ -55,7 +60,7 @@ button {
   background: #3b82f6;
   color: white;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 7px 12px;
   cursor: pointer;
 }
 
@@ -93,15 +98,16 @@ button:disabled {
 
 .gel-grid {
   display: grid;
-  grid-template-columns: repeat(24, minmax(130px, 1fr));
-  gap: 8px;
-  min-width: 3200px;
+  grid-template-columns: repeat(24, minmax(88px, 1fr));
+  gap: 6px;
+  min-width: 2180px;
 }
 
 .lane {
   border: 2px solid #d0d5dd;
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 7px;
+  padding: 6px;
+  min-height: 82px;
 }
 
 .lane-button {
@@ -115,21 +121,22 @@ button:disabled {
 }
 
 .lane-number {
-  font-size: 12px;
+  font-size: 11px;
   color: #475467;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .lane-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .lane-content span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
 }
 
 .marker-text {
@@ -141,27 +148,21 @@ button:disabled {
   color: #98a2b3;
 }
 
-.steps-grid {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
-  gap: 8px;
+.compact-step-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.step-toggle {
+.step-toggle.compact {
   text-align: left;
   color: #1f2937;
   border: 2px solid transparent;
-}
-
-.step-toggle h4,
-.step-toggle p {
-  margin: 0;
-}
-
-.step-toggle p {
-  margin-top: 6px;
-  word-break: break-word;
+  border-radius: 8px;
+  background: white;
+  padding: 5px 10px;
+  min-width: 86px;
 }
 
 .plate-table-wrap {

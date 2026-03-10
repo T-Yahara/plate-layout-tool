@@ -1,6 +1,6 @@
 import { STEP_COLOR_MAP } from '../logic/stepColors';
-import type { GelPlan, WellEntry } from '../logic/types';
 import { getStepForLocalNumber } from '../logic/planner';
+import type { GelPlan, WellEntry } from '../logic/types';
 
 interface Props {
   gel: GelPlan;
@@ -9,11 +9,11 @@ interface Props {
   onToggleStep: (gelNumber: number, step: WellEntry['step']) => void;
 }
 
-const stepConfigs: { name: WellEntry['step']; key: 'step1' | 'step2' | 'step3' | 'step4' }[] = [
-  { name: 'Step1', key: 'step1' },
-  { name: 'Step2', key: 'step2' },
-  { name: 'Step3', key: 'step3' },
-  { name: 'Step4', key: 'step4' },
+const stepConfigs: { name: WellEntry['step'] }[] = [
+  { name: 'Step1' },
+  { name: 'Step2' },
+  { name: 'Step3' },
+  { name: 'Step4' },
 ];
 
 export function GelLayoutCard({ gel, disabledIds, onToggleLane, onToggleStep }: Props) {
@@ -38,7 +38,7 @@ export function GelLayoutCard({ gel, disabledIds, onToggleLane, onToggleStep }: 
                   style={{ background: colors.background, borderColor: colors.border }}
                   title={`${lane.sampleName} (${step})`}
                 >
-                  <div className="lane-number">Lane {idx + 1}</div>
+                  <div className="lane-number">L{idx + 1}</div>
                   <div className="lane-content" title={lane.sampleName}>
                     <strong>#{lane.localNumber}</strong>
                     <span>{lane.sampleName}</span>
@@ -55,7 +55,7 @@ export function GelLayoutCard({ gel, disabledIds, onToggleLane, onToggleStep }: 
                 className={`lane lane-button ${lane.type} ${isDisabled ? 'is-disabled' : ''}`}
                 onClick={() => onToggleLane(laneId)}
               >
-                <div className="lane-number">Lane {idx + 1}</div>
+                <div className="lane-number">L{idx + 1}</div>
                 {lane.type === 'marker' ? (
                   <div className="lane-content marker-text">Marker</div>
                 ) : (
@@ -67,22 +67,18 @@ export function GelLayoutCard({ gel, disabledIds, onToggleLane, onToggleStep }: 
         </div>
       </div>
 
-      <div className="steps-grid">
-        {stepConfigs.map(({ name, key }) => {
-          const numbers = gel.applySteps[key];
-          return (
-            <button
-              key={name}
-              type="button"
-              className="step-toggle"
-              onClick={() => onToggleStep(gel.gelNumber, name)}
-              style={{ borderColor: STEP_COLOR_MAP[name].border, background: STEP_COLOR_MAP[name].background }}
-            >
-              <h4>{name}</h4>
-              <p>{numbers.length === 0 ? '-' : numbers.join(', ')}</p>
-            </button>
-          );
-        })}
+      <div className="compact-step-row">
+        {stepConfigs.map(({ name }) => (
+          <button
+            key={name}
+            type="button"
+            className="step-toggle compact"
+            onClick={() => onToggleStep(gel.gelNumber, name)}
+            style={{ borderColor: STEP_COLOR_MAP[name].border, background: STEP_COLOR_MAP[name].background }}
+          >
+            {name}
+          </button>
+        ))}
       </div>
     </section>
   );

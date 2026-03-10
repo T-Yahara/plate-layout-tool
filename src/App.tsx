@@ -1,13 +1,14 @@
-import { ChangeEvent, useMemo, useState } from 'react';
+import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { GelLayoutCard } from './components/GelLayoutCard';
 import { PlateLayoutCard } from './components/PlateLayoutCard';
-import { downloadCsvFiles } from './logic/csv';
+import { exportGelCsv, exportGelPdf, exportPlateCsv, exportPlatePdf } from './logic/export';
 import { buildPlan, detectDuplicates, parseSampleText } from './logic/planner';
 import type { BuildResult, MarkerPlacement, WellEntry } from './logic/types';
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const cols = Array.from({ length: 12 }, (_, i) => i + 1);
+const stepNames: WellEntry['step'][] = ['Step1', 'Step2', 'Step3', 'Step4'];
 
 const toPlateWellId = (plateNumber: number, well: string): string => `P${plateNumber}_${well}`;
 
@@ -17,6 +18,8 @@ function App() {
   const [result, setResult] = useState<BuildResult | null>(null);
   const [error, setError] = useState<string>('');
   const [disabledIds, setDisabledIds] = useState<Set<string>>(new Set());
+  const [selectedFileName, setSelectedFileName] = useState<string>('未選択');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const duplicates = useMemo(() => detectDuplicates(samples), [samples]);
 
@@ -58,11 +61,24 @@ function App() {
     return { plateToGel, gelToPlate };
   }, [result]);
 
+  const withLinkedIds = (ids: string[]): string[] => {
+    const next = new Set<string>();
+    ids.forEach((id) => {
+      next.add(id);
+      const linked = linkage.plateToGel.get(id) ?? linkage.gelToPlate.get(id);
+      if (linked) {
+        next.add(linked);
+      }
+    });
+    return [...next];
+  };
+
   const toggleIds = (ids: string[]) => {
+    const targetIds = withLinkedIds(ids);
     setDisabledIds((prev) => {
       const next = new Set(prev);
-      const allDisabled = ids.every((id) => next.has(id));
-      ids.forEach((id) => {
+      const allDisabled = targetIds.every((id) => next.has(id));
+      targetIds.forEach((id) => {
         if (allDisabled) {
           next.delete(id);
         } else {
@@ -74,8 +90,7 @@ function App() {
   };
 
   const toggleWell = (id: string) => {
-    const linked = linkage.plateToGel.get(id) ?? linkage.gelToPlate.get(id);
-    toggleIds(linked ? [id, linked] : [id]);
+    toggleIds([id]);
   };
 
   const toggleRow = (plateNumber: number, row: string) => {
@@ -86,10 +101,33 @@ function App() {
     toggleIds(rows.map((row) => toPlateWellId(plateNumber, `${row}${col}`)));
   };
 
+  const getStepWellIdsFromPlate = (plateNumber: number, step: WellEntry['step']): string[] => {
+    if (!result) {
+      return [];
+    }
+
+    const plate = result.plates.find((p) => p.plateNumber === plateNumber);
+    if (!plate) {
+      return [];
+    }
+
+    return Object.entries(plate.wells)
+      .filter(([, entry]) => entry?.step === step)
+      .map(([well]) => toPlateWellId(plateNumber, well));
+  };
+
+  const toggleStepInPlate = (plateNumber: number, step: WellEntry['step']) => {
+    const ids = getStepWellIdsFromPlate(plateNumber, step);
+    if (ids.length > 0) {
+      toggleIds(ids);
+    }
+  };
+
   const toggleStepInGel = (gelNumber: number, step: WellEntry['step']) => {
     if (!result) {
       return;
     }
+
     const gel = result.gels.find((g) => g.gelNumber === gelNumber);
     if (!gel) {
       return;
@@ -110,12 +148,7 @@ function App() {
       )
       .filter((id): id is string => id !== null);
 
-    const idsWithLinked = ids.flatMap((id) => {
-      const plateId = linkage.gelToPlate.get(id);
-      return plateId ? [id, plateId] : [id];
-    });
-
-    toggleIds(idsWithLinked);
+    toggleIds(ids);
   };
 
   const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -133,15 +166,29 @@ function App() {
         setError('空ファイルです。サンプル名を1行ずつ入力してください。');
         setSamples([]);
         setResult(null);
+        setSelectedFileName('未選択');
         return;
       }
       setSamples(parsed);
+      setSelectedFileName(file.name);
       setResult(buildPlan(parsed, markerPlacement));
       setDisabledIds(new Set());
     } catch {
       setError('ファイルの読み込みに失敗しました。');
       setSamples([]);
       setResult(null);
+      setSelectedFileName('未選択');
+    }
+  };
+
+  const onResetFile = () => {
+    setSamples([]);
+    setResult(null);
+    setError('');
+    setDisabledIds(new Set());
+    setSelectedFileName('未選択');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -163,7 +210,14 @@ function App() {
         <h2>設定</h2>
         <div className="form-row">
           <label htmlFor="sampleFile">サンプルファイル (txt/csv)</label>
-          <input id="sampleFile" type="file" accept=".txt,.csv,text/plain,text/csv" onChange={onFileChange} />
+          <input
+            ref={fileInputRef}
+            id="sampleFile"
+            type="file"
+            accept=".txt,.csv,text/plain,text/csv"
+            onChange={onFileChange}
+          />
+          <span className="file-name">選択中: {selectedFileName}</span>
         </div>
 
         <div className="form-row">
@@ -181,9 +235,19 @@ function App() {
         </div>
 
         <div className="button-row">
-          <button onClick={onGenerateClick}>計画を再生成</button>
-          <button disabled={!result} onClick={() => result && downloadCsvFiles(result)}>
-            CSV出力 (3ファイル)
+          <button onClick={onGenerateClick}>Generate</button>
+          <button onClick={onResetFile}>ファイルをリセット</button>
+          <button disabled={!result} onClick={() => result && exportPlateCsv(result)}>
+            96well CSV 出力
+          </button>
+          <button disabled={!result} onClick={() => result && exportGelCsv(result)}>
+            24well CSV 出力
+          </button>
+          <button disabled={!result} onClick={() => result && exportPlatePdf(result)}>
+            96well PDF 出力
+          </button>
+          <button disabled={!result} onClick={() => result && exportGelPdf(result)}>
+            24well PDF 出力
           </button>
           <button disabled={disabledIds.size === 0} onClick={() => setDisabledIds(new Set())}>
             Reset Disabled Wells
@@ -206,21 +270,6 @@ function App() {
           </section>
 
           <section>
-            <h2>24wellゲル配置とアプライ順</h2>
-            <div className="stack">
-              {result.gels.map((gel) => (
-                <GelLayoutCard
-                  key={gel.gelNumber}
-                  gel={gel}
-                  disabledIds={disabledIds}
-                  onToggleLane={toggleWell}
-                  onToggleStep={toggleStepInGel}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section>
             <h2>96wellプレート配置</h2>
             <div className="stack">
               {result.plates.map((plate) => (
@@ -231,6 +280,23 @@ function App() {
                   onToggleWell={toggleWell}
                   onToggleRow={toggleRow}
                   onToggleColumn={toggleColumn}
+                  onToggleStep={toggleStepInPlate}
+                  stepNames={stepNames}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2>24wellゲル配置とアプライ順</h2>
+            <div className="stack">
+              {result.gels.map((gel) => (
+                <GelLayoutCard
+                  key={gel.gelNumber}
+                  gel={gel}
+                  disabledIds={disabledIds}
+                  onToggleLane={toggleWell}
+                  onToggleStep={toggleStepInGel}
                 />
               ))}
             </div>
