@@ -51,7 +51,7 @@ function App() {
 
   return (
     <main className="container">
-      <h1>96well PCR → 24well Gel アプライ計画ツール</h1>
+      <h1>96well PCR → 24well Gel mapping</h1>
 
       <section className="card">
         <h2>設定</h2>

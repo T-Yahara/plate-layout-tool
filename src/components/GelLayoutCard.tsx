@@ -8,7 +8,8 @@ export function GelLayoutCard({ gel }: Props) {
   return (
     <section className="card">
       <h3>Gel {gel.gelNumber}</h3>
-      <div className="gel-grid">
+      <div className="gel-grid-wrap">
+        <div className="gel-grid">
         {gel.lanes.map((lane, idx) => (
           <div key={idx} className={`lane ${lane.type}`}>
             <div className="lane-number">Lane {idx + 1}</div>
@@ -24,6 +25,7 @@ export function GelLayoutCard({ gel }: Props) {
             )}
           </div>
         ))}
+        </div>
       </div>
 
       <div className="steps-grid">

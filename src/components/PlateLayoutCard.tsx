@@ -1,4 +1,5 @@
-import type { PlatePlan } from '../logic/types';
+import type { CSSProperties } from 'react';
+import type { PlatePlan, WellEntry } from '../logic/types';
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const cols = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -6,6 +7,18 @@ const cols = Array.from({ length: 12 }, (_, i) => i + 1);
 interface Props {
   plate: PlatePlan;
 }
+
+const stepIndexMap: Record<WellEntry['step'], number> = {
+  Step1: 0,
+  Step2: 1,
+  Step3: 2,
+  Step4: 3,
+};
+
+const borderColorFor = (entry: WellEntry): string => {
+  const hue = (entry.gelNumber * 53 + stepIndexMap[entry.step] * 19) % 360;
+  return `hsl(${hue} 85% 45%)`;
+};
 
 export function PlateLayoutCard({ plate }: Props) {
   return (
@@ -28,11 +41,20 @@ export function PlateLayoutCard({ plate }: Props) {
                 {cols.map((col) => {
                   const wellId = `${row}${col}`;
                   const entry = plate.wells[wellId];
+                  const cellStyle: CSSProperties | undefined = entry
+                    ? { borderColor: borderColorFor(entry) }
+                    : undefined;
+
                   return (
-                    <td key={wellId} title={entry ? `${entry.sampleName} (${entry.step})` : ''}>
+                    <td
+                      key={wellId}
+                      className={entry ? 'step-border' : ''}
+                      style={cellStyle}
+                      title={entry ? `${entry.sampleName} (${entry.step})` : ''}
+                    >
                       {entry ? (
                         <div className="well-cell">
-                          <small>G{entry.gelNumber}#{entry.localNumber}</small>
+                          <small>G{entry.gelNumber}#{entry.localNumber} {entry.step}</small>
                           <span>{entry.sampleName}</span>
                         </div>
                       ) : (

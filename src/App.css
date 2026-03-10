@@ -83,10 +83,15 @@ button:disabled {
   font-weight: 700;
 }
 
+.gel-grid-wrap {
+  overflow-x: auto;
+}
+
 .gel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(24, minmax(130px, 1fr));
   gap: 8px;
+  min-width: 3200px;
 }
 
 .lane {
@@ -173,6 +178,11 @@ button:disabled {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.step-border {
+  border-width: 2px !important;
+  border-style: solid;
 }
 
 .stack {
