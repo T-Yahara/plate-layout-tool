@@ -1,14 +1,13 @@
-import { ChangeEvent, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, Dispatch, SetStateAction, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { GelLayoutCard } from './components/GelLayoutCard';
 import { PlateLayoutCard } from './components/PlateLayoutCard';
-import { exportGelCsv, exportGelPdf, exportPlateCsv, exportPlatePdf } from './logic/export';
+import { exportGelCsv, exportGelPng, exportPlateCsv, exportPlatePng } from './logic/export';
 import { buildPlan, detectDuplicates, parseSampleText } from './logic/planner';
 import type { BuildResult, MarkerPlacement, WellEntry } from './logic/types';
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const cols = Array.from({ length: 12 }, (_, i) => i + 1);
-const stepNames: WellEntry['step'][] = ['Step1', 'Step2', 'Step3', 'Step4'];
 
 const toPlateWellId = (plateNumber: number, well: string): string => `P${plateNumber}_${well}`;
 
@@ -17,68 +16,22 @@ function App() {
   const [samples, setSamples] = useState<string[]>([]);
   const [result, setResult] = useState<BuildResult | null>(null);
   const [error, setError] = useState<string>('');
-  const [disabledIds, setDisabledIds] = useState<Set<string>>(new Set());
+  const [disabledPlateIds, setDisabledPlateIds] = useState<Set<string>>(new Set());
+  const [disabledGelIds, setDisabledGelIds] = useState<Set<string>>(new Set());
   const [selectedFileName, setSelectedFileName] = useState<string>('未選択');
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const plateElementsRef = useRef<Map<number, HTMLElement>>(new Map());
+  const gelElementsRef = useRef<Map<number, HTMLElement>>(new Map());
 
   const duplicates = useMemo(() => detectDuplicates(samples), [samples]);
 
-  const linkage = useMemo(() => {
-    const plateToGel = new Map<string, string>();
-    const gelToPlate = new Map<string, string>();
-
-    if (!result) {
-      return { plateToGel, gelToPlate };
-    }
-
-    const localToLaneByGel = new Map<number, Map<number, number>>();
-    result.gels.forEach((gel) => {
-      const localToLane = new Map<number, number>();
-      gel.lanes.forEach((lane, idx) => {
-        if (lane.type === 'sample') {
-          localToLane.set(lane.localNumber, idx + 1);
-        }
-      });
-      localToLaneByGel.set(gel.gelNumber, localToLane);
-    });
-
-    result.plates.forEach((plate) => {
-      Object.entries(plate.wells).forEach(([well, entry]) => {
-        if (!entry) {
-          return;
-        }
-        const lane = localToLaneByGel.get(entry.gelNumber)?.get(entry.localNumber);
-        if (!lane) {
-          return;
-        }
-        const plateId = toPlateWellId(plate.plateNumber, well);
-        const gelId = `G${entry.gelNumber}_L${lane}`;
-        plateToGel.set(plateId, gelId);
-        gelToPlate.set(gelId, plateId);
-      });
-    });
-
-    return { plateToGel, gelToPlate };
-  }, [result]);
-
-  const withLinkedIds = (ids: string[]): string[] => {
-    const next = new Set<string>();
-    ids.forEach((id) => {
-      next.add(id);
-      const linked = linkage.plateToGel.get(id) ?? linkage.gelToPlate.get(id);
-      if (linked) {
-        next.add(linked);
-      }
-    });
-    return [...next];
-  };
-
-  const toggleIds = (ids: string[]) => {
-    const targetIds = withLinkedIds(ids);
-    setDisabledIds((prev) => {
+  const toggleIds = (setter: Dispatch<SetStateAction<Set<string>>>, ids: string[]) => {
+    setter((prev) => {
       const next = new Set(prev);
-      const allDisabled = targetIds.every((id) => next.has(id));
-      targetIds.forEach((id) => {
+      const allDisabled = ids.every((id) => next.has(id));
+      ids.forEach((id) => {
         if (allDisabled) {
           next.delete(id);
         } else {
@@ -89,37 +42,48 @@ function App() {
     });
   };
 
-  const toggleWell = (id: string) => {
-    toggleIds([id]);
-  };
+  const togglePlateWell = (id: string) => toggleIds(setDisabledPlateIds, [id]);
+  const toggleGelLane = (id: string) => toggleIds(setDisabledGelIds, [id]);
 
   const toggleRow = (plateNumber: number, row: string) => {
-    toggleIds(cols.map((col) => toPlateWellId(plateNumber, `${row}${col}`)));
+    toggleIds(
+      setDisabledPlateIds,
+      cols.map((col) => toPlateWellId(plateNumber, `${row}${col}`)),
+    );
   };
 
   const toggleColumn = (plateNumber: number, col: number) => {
-    toggleIds(rows.map((row) => toPlateWellId(plateNumber, `${row}${col}`)));
+    toggleIds(
+      setDisabledPlateIds,
+      rows.map((row) => toPlateWellId(plateNumber, `${row}${col}`)),
+    );
   };
 
-  const getStepWellIdsFromPlate = (plateNumber: number, step: WellEntry['step']): string[] => {
+  const toggleGroupStepInPlate = (plateNumber: number, group: 1 | 2 | 3 | 4, step: 1 | 2 | 3 | 4) => {
     if (!result) {
-      return [];
+      return;
     }
-
     const plate = result.plates.find((p) => p.plateNumber === plateNumber);
     if (!plate) {
-      return [];
+      return;
     }
 
-    return Object.entries(plate.wells)
-      .filter(([, entry]) => entry?.step === step)
-      .map(([well]) => toPlateWellId(plateNumber, well));
-  };
+    const stepLabel: WellEntry['step'] = `Step${step}` as WellEntry['step'];
+    const groupStart = (group - 1) * 3 + 1;
+    const groupEnd = groupStart + 2;
 
-  const toggleStepInPlate = (plateNumber: number, step: WellEntry['step']) => {
-    const ids = getStepWellIdsFromPlate(plateNumber, step);
+    const ids = Object.entries(plate.wells)
+      .filter(([wellId, entry]) => {
+        if (!entry || entry.step !== stepLabel) {
+          return false;
+        }
+        const col = Number(wellId.slice(1));
+        return col >= groupStart && col <= groupEnd;
+      })
+      .map(([wellId]) => toPlateWellId(plateNumber, wellId));
+
     if (ids.length > 0) {
-      toggleIds(ids);
+      toggleIds(setDisabledPlateIds, ids);
     }
   };
 
@@ -148,7 +112,7 @@ function App() {
       )
       .filter((id): id is string => id !== null);
 
-    toggleIds(ids);
+    toggleIds(setDisabledGelIds, ids);
   };
 
   const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +136,8 @@ function App() {
       setSamples(parsed);
       setSelectedFileName(file.name);
       setResult(buildPlan(parsed, markerPlacement));
-      setDisabledIds(new Set());
+      setDisabledPlateIds(new Set());
+      setDisabledGelIds(new Set());
     } catch {
       setError('ファイルの読み込みに失敗しました。');
       setSamples([]);
@@ -185,8 +150,12 @@ function App() {
     setSamples([]);
     setResult(null);
     setError('');
-    setDisabledIds(new Set());
+    setDisabledPlateIds(new Set());
+    setDisabledGelIds(new Set());
     setSelectedFileName('未選択');
+    setIsExportMenuOpen(false);
+    plateElementsRef.current.clear();
+    gelElementsRef.current.clear();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -199,7 +168,40 @@ function App() {
     }
     setError('');
     setResult(buildPlan(samples, markerPlacement));
-    setDisabledIds(new Set());
+    setDisabledPlateIds(new Set());
+    setDisabledGelIds(new Set());
+  };
+
+  const registerPlateElement = (plateNumber: number, element: HTMLElement | null) => {
+    if (element) {
+      plateElementsRef.current.set(plateNumber, element);
+    } else {
+      plateElementsRef.current.delete(plateNumber);
+    }
+  };
+
+  const registerGelElement = (gelNumber: number, element: HTMLElement | null) => {
+    if (element) {
+      gelElementsRef.current.set(gelNumber, element);
+    } else {
+      gelElementsRef.current.delete(gelNumber);
+    }
+  };
+
+  const onExport = async (type: 'plateCsv' | 'gelCsv' | 'platePng' | 'gelPng') => {
+    if (!result) {
+      return;
+    }
+    try {
+      if (type === 'plateCsv') exportPlateCsv(result);
+      if (type === 'gelCsv') exportGelCsv(result);
+      if (type === 'platePng') await exportPlatePng(result, plateElementsRef.current);
+      if (type === 'gelPng') await exportGelPng(result, gelElementsRef.current);
+    } catch {
+      setError('エクスポートに失敗しました。');
+    } finally {
+      setIsExportMenuOpen(false);
+    }
   };
 
   return (
@@ -237,19 +239,26 @@ function App() {
         <div className="button-row">
           <button onClick={onGenerateClick}>Generate</button>
           <button onClick={onResetFile}>ファイルをリセット</button>
-          <button disabled={!result} onClick={() => result && exportPlateCsv(result)}>
-            96well CSV 出力
-          </button>
-          <button disabled={!result} onClick={() => result && exportGelCsv(result)}>
-            24well CSV 出力
-          </button>
-          <button disabled={!result} onClick={() => result && exportPlatePdf(result)}>
-            96well PDF 出力
-          </button>
-          <button disabled={!result} onClick={() => result && exportGelPdf(result)}>
-            24well PDF 出力
-          </button>
-          <button disabled={disabledIds.size === 0} onClick={() => setDisabledIds(new Set())}>
+          <div className="export-menu-wrap">
+            <button disabled={!result} onClick={() => setIsExportMenuOpen((prev) => !prev)}>
+              Export
+            </button>
+            {isExportMenuOpen && result && (
+              <div className="export-menu">
+                <button onClick={() => onExport('plateCsv')}>96well CSV</button>
+                <button onClick={() => onExport('gelCsv')}>24well CSV</button>
+                <button onClick={() => onExport('platePng')}>96well PNG</button>
+                <button onClick={() => onExport('gelPng')}>24well PNG</button>
+              </div>
+            )}
+          </div>
+          <button
+            disabled={disabledPlateIds.size === 0 && disabledGelIds.size === 0}
+            onClick={() => {
+              setDisabledPlateIds(new Set());
+              setDisabledGelIds(new Set());
+            }}
+          >
             Reset Disabled Wells
           </button>
         </div>
@@ -266,7 +275,8 @@ function App() {
             <div>サンプル数: {result.sampleCount}</div>
             <div>ゲル数: {result.gels.length}</div>
             <div>プレート数: {result.plates.length}</div>
-            <div>無効化: {disabledIds.size} 箇所</div>
+            <div>96well無効化: {disabledPlateIds.size}</div>
+            <div>24well無効化: {disabledGelIds.size}</div>
           </section>
 
           <section>
@@ -276,12 +286,12 @@ function App() {
                 <PlateLayoutCard
                   key={plate.plateNumber}
                   plate={plate}
-                  disabledIds={disabledIds}
-                  onToggleWell={toggleWell}
+                  disabledIds={disabledPlateIds}
+                  onToggleWell={togglePlateWell}
                   onToggleRow={toggleRow}
                   onToggleColumn={toggleColumn}
-                  onToggleStep={toggleStepInPlate}
-                  stepNames={stepNames}
+                  onToggleGroupStep={toggleGroupStepInPlate}
+                  registerPlateElement={registerPlateElement}
                 />
               ))}
             </div>
@@ -294,9 +304,10 @@ function App() {
                 <GelLayoutCard
                   key={gel.gelNumber}
                   gel={gel}
-                  disabledIds={disabledIds}
-                  onToggleLane={toggleWell}
+                  disabledIds={disabledGelIds}
+                  onToggleLane={toggleGelLane}
                   onToggleStep={toggleStepInGel}
+                  registerGelElement={registerGelElement}
                 />
               ))}
             </div>

@@ -7,7 +7,7 @@ const escapeCsv = (value: string): string => {
   return value;
 };
 
-const downloadFile = (filename: string, content: string, mimeType: string): void => {
+const downloadText = (filename: string, content: string, mimeType: string): void => {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -63,96 +63,75 @@ const createPlateLayoutCsv = (plates: PlatePlan[]): string => {
   return lines.join('\n');
 };
 
-const buildPrintWindow = (title: string, bodyHtml: string): void => {
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=1200,height=900');
-  if (!popup) {
-    return;
+const exportElementToPng = async (element: HTMLElement, fileName: string): Promise<void> => {
+  const cloned = element.cloneNode(true) as HTMLElement;
+  cloned.style.margin = '0';
+
+  const width = Math.ceil(element.scrollWidth || element.clientWidth);
+  const height = Math.ceil(element.scrollHeight || element.clientHeight);
+
+  const wrapper = document.createElement('div');
+  wrapper.style.background = '#ffffff';
+  wrapper.style.padding = '8px';
+  wrapper.style.width = `${width}px`;
+  wrapper.appendChild(cloned);
+
+  const data = new XMLSerializer().serializeToString(wrapper);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width + 16}" height="${height + 16}"><foreignObject width="100%" height="100%">${data}</foreignObject></svg>`;
+
+  const image = new Image();
+  image.crossOrigin = 'anonymous';
+
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error('PNG変換に失敗しました'));
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width + 16;
+  canvas.height = height + 16;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Canvas描画に失敗しました');
   }
 
-  popup.document.write(`
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 12px; }
-          h1, h2 { margin: 8px 0; }
-          table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
-          th, td { border: 1px solid #9ca3af; padding: 4px; font-size: 12px; vertical-align: top; }
-          .marker { background: #fff7ed; }
-          .empty { color: #9ca3af; }
-          .small { font-size: 11px; color: #475467; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        ${bodyHtml}
-      </body>
-    </html>
-  `);
-  popup.document.close();
-  popup.focus();
-  popup.print();
-};
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0);
 
-const plateToHtml = (result: BuildResult): string => {
-  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const cols = Array.from({ length: 12 }, (_, i) => i + 1);
-
-  return result.plates
-    .map((plate) => {
-      const tableRows = rows
-        .map((row) => {
-          const cells = cols
-            .map((col) => {
-              const entry = plate.wells[`${row}${col}`];
-              if (!entry) {
-                return '<td class="empty">-</td>';
-              }
-              return `<td><div class="small">${entry.step} / G${entry.gelNumber}#${entry.localNumber}</div><div>${entry.sampleName}</div></td>`;
-            })
-            .join('');
-          return `<tr><th>${row}</th>${cells}</tr>`;
-        })
-        .join('');
-
-      const header = cols.map((col) => `<th>${col}</th>`).join('');
-      return `<h2>Plate ${plate.plateNumber}</h2><table><thead><tr><th></th>${header}</tr></thead><tbody>${tableRows}</tbody></table>`;
-    })
-    .join('');
-};
-
-const gelToHtml = (result: BuildResult): string => {
-  return result.gels
-    .map((gel) => {
-      const laneHeader = Array.from({ length: 24 }, (_, i) => `<th>${i + 1}</th>`).join('');
-      const laneRow = gel.lanes
-        .map((lane) => {
-          if (lane.type === 'marker') {
-            return '<td class="marker">Marker</td>';
-          }
-          if (lane.type === 'sample') {
-            return `<td><div class="small">#${lane.localNumber}</div><div>${lane.sampleName}</div></td>`;
-          }
-          return '<td class="empty">-</td>';
-        })
-        .join('');
-      return `<h2>Gel ${gel.gelNumber}</h2><table><thead><tr>${laneHeader}</tr></thead><tbody><tr>${laneRow}</tr></tbody></table>`;
-    })
-    .join('');
+  const pngUrl = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = pngUrl;
+  a.download = fileName;
+  a.click();
 };
 
 export const exportPlateCsv = (result: BuildResult): void => {
-  downloadFile('plate_layout.csv', createPlateLayoutCsv(result.plates), 'text/csv;charset=utf-8;');
+  downloadText('plate_layout.csv', createPlateLayoutCsv(result.plates), 'text/csv;charset=utf-8;');
 };
 
 export const exportGelCsv = (result: BuildResult): void => {
-  downloadFile('gel_layout.csv', createGelLayoutCsv(result.gels), 'text/csv;charset=utf-8;');
+  downloadText('gel_layout.csv', createGelLayoutCsv(result.gels), 'text/csv;charset=utf-8;');
 };
 
-export const exportPlatePdf = (result: BuildResult): void => {
-  buildPrintWindow('96well layout', plateToHtml(result));
+export const exportPlatePng = async (
+  result: BuildResult,
+  plateElements: Map<number, HTMLElement>,
+): Promise<void> => {
+  for (const plate of result.plates) {
+    const element = plateElements.get(plate.plateNumber);
+    if (element) {
+      await exportElementToPng(element, `plate${plate.plateNumber}.png`);
+    }
+  }
 };
 
-export const exportGelPdf = (result: BuildResult): void => {
-  buildPrintWindow('24well gel layout', gelToHtml(result));
+export const exportGelPng = async (result: BuildResult, gelElements: Map<number, HTMLElement>): Promise<void> => {
+  for (const gel of result.gels) {
+    const element = gelElements.get(gel.gelNumber);
+    if (element) {
+      await exportElementToPng(element, `gel${gel.gelNumber}.png`);
+    }
+  }
 };

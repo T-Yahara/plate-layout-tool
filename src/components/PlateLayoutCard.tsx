@@ -1,5 +1,5 @@
 import { STEP_COLOR_MAP } from '../logic/stepColors';
-import type { PlatePlan, WellEntry } from '../logic/types';
+import type { PlatePlan } from '../logic/types';
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const cols = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -10,8 +10,8 @@ interface Props {
   onToggleWell: (wellId: string) => void;
   onToggleRow: (plateNumber: number, row: string) => void;
   onToggleColumn: (plateNumber: number, col: number) => void;
-  onToggleStep: (plateNumber: number, step: WellEntry['step']) => void;
-  stepNames: WellEntry['step'][];
+  onToggleGroupStep: (plateNumber: number, group: 1 | 2 | 3 | 4, step: 1 | 2 | 3 | 4) => void;
+  registerPlateElement: (plateNumber: number, element: HTMLElement | null) => void;
 }
 
 const toPlateWellId = (plateNumber: number, well: string): string => `P${plateNumber}_${well}`;
@@ -22,25 +22,26 @@ export function PlateLayoutCard({
   onToggleWell,
   onToggleRow,
   onToggleColumn,
-  onToggleStep,
-  stepNames,
+  onToggleGroupStep,
+  registerPlateElement,
 }: Props) {
   return (
-    <section className="card">
+    <section className="card" ref={(el) => registerPlateElement(plate.plateNumber, el)}>
       <h3>Plate {plate.plateNumber}</h3>
 
-      <div className="compact-step-row">
-        {stepNames.map((step) => (
-          <button
-            key={`${plate.plateNumber}-${step}`}
-            type="button"
-            className="step-toggle compact"
-            onClick={() => onToggleStep(plate.plateNumber, step)}
-            style={{ borderColor: STEP_COLOR_MAP[step].border, background: STEP_COLOR_MAP[step].background }}
-          >
-            {step}
-          </button>
-        ))}
+      <div className="group-step-row" title="G{group}-{step}: Gelグループ単位のStepトグル">
+        {([1, 2, 3, 4] as const).map((group) =>
+          ([1, 2, 3, 4] as const).map((step) => (
+            <button
+              key={`G${group}-${step}`}
+              type="button"
+              className="group-step-btn"
+              onClick={() => onToggleGroupStep(plate.plateNumber, group, step)}
+            >
+              G{group}-{step}
+            </button>
+          )),
+        )}
       </div>
 
       <div className="plate-table-wrap">

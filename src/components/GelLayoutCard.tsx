@@ -7,6 +7,7 @@ interface Props {
   disabledIds: Set<string>;
   onToggleLane: (laneId: string) => void;
   onToggleStep: (gelNumber: number, step: WellEntry['step']) => void;
+  registerGelElement: (gelNumber: number, element: HTMLElement | null) => void;
 }
 
 const stepConfigs: { name: WellEntry['step'] }[] = [
@@ -16,9 +17,9 @@ const stepConfigs: { name: WellEntry['step'] }[] = [
   { name: 'Step4' },
 ];
 
-export function GelLayoutCard({ gel, disabledIds, onToggleLane, onToggleStep }: Props) {
+export function GelLayoutCard({ gel, disabledIds, onToggleLane, onToggleStep, registerGelElement }: Props) {
   return (
-    <section className="card">
+    <section className="card" ref={(el) => registerGelElement(gel.gelNumber, el)}>
       <h3>Gel {gel.gelNumber}</h3>
       <div className="gel-grid-wrap">
         <div className="gel-grid">
