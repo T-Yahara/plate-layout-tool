@@ -1,20 +1,18 @@
-# Use official Node.js 20 image as the base runtime
-FROM node:20
+FROM node:20-alpine AS build
 
-# Set working directory inside the container
 WORKDIR /app
 
-# Copy dependency definition files first to leverage Docker layer cache
 COPY package.json package-lock.json ./
+RUN npm ci
 
-# Install project dependencies
-RUN npm install
-
-# Copy the rest of the application source code
 COPY . .
+RUN npm run build
 
-# Expose Vite development server port
-EXPOSE 5173
+FROM nginx:alpine
 
-# Start the Vite dev server and bind to all interfaces for host access
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
